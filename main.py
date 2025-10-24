@@ -85,4 +85,33 @@ async def analyze_face(file: UploadFile = File(...)) -> Dict[str, str]:
             if label.description.lower() in ["glasses", "eyewear", "sunglasses"]:
                 scores["professional"] += 10
             
-            if label.description in ["sky", "crowd", "outdoor
+            # --- [오류 수정된 부분!] ---
+            if label.description in ["sky", "crowd", "outdoor"]: scores["chaotic"] += 5
+            if label.description in ["room", "office", "building"]: scores["professional"] += 5
+            if label.description in ["night", "darkness"]: scores["mysterious"] += 10
+            if label.description in ["cafe", "restaurant", "food"]: scores["hedonist"] += 5
+            if label.description in ["school", "street", "book"]: scores["duality"] += 5
+
+    if response.image_properties_annotation and response.image_properties_annotation.dominant_colors:
+        dominant_colors = response.image_properties_annotation.dominant_colors.colors
+        warm_colors, cool_colors = 0, 0
+        for color_info in dominant_colors:
+            color = color_info.color
+            if color.red > color.blue and color.red > color.green: warm_colors += color_info.pixel_fraction
+            if color.blue > color.red: cool_colors += color_info.pixel_fraction
+        if warm_colors > 0.5: scores["chaotic"] += 10
+        if cool_colors > 0.5: scores["professional"] += 10
+
+    if not any(scores.values()):
+        winning_archetype = "mysterious"
+    else:
+        winning_archetype = max(scores, key=scores.get)
+
+    candidate_chars = [char for char, data in CHARACTERS_DATA.items() if data["archetype"] == winning_archetype]
+    
+    if not candidate_chars:
+        selected_char_name = "pochita" if winning_archetype == "chaotic" else "makima"
+    else:
+        selected_char_name = random.choice(candidate_chars)
+
+    return CHARACTERS_DATA[selected_char_name]
