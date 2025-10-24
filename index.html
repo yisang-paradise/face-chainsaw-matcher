@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>체인소맨 궁합 분석기</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; align-items: center; margin-top: 40px; background-color: #f0f2f5; }
+        .container { max-width: 500px; width: 100%; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        h1 { color: #333; }
+        button { margin-top: 15px; padding: 12px 25px; font-size: 16px; cursor: pointer; border: none; background-color: #ff4500; color: white; border-radius: 5px; transition: background-color 0.3s; }
+        button:hover { background-color: #cc3700; }
+        #result-container { margin-top: 30px; text-align: center; opacity: 0; transition: opacity 0.5s; }
+        #result-container.show { opacity: 1; }
+        #char-image { max-width: 100%; height: auto; border-radius: 8px; margin-bottom: 15px; }
+        #char-name { font-size: 2em; font-weight: bold; color: #ff4500; }
+        #char-reason { font-size: 1.1em; color: #555; }
+        #status { color: #777; font-size: 1em; height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>싱크로율 100%! 내 안의 체인소맨 캐릭터는?</h1>
+        <p>당신의 사진으로 싱크로율을 측정해보세요</p>
+        <input type="file" id="imageFile" accept="image/*">
+        <br>
+        <button onclick="analyze()">싱크로율 분석</button>
+        <p id="status"></p>
+        <div id="result-container">
+            <img id="char-image" src="" alt="캐릭터 이미지">
+            <h2 id="char-name"></h2>
+            <p id="char-reason"></p>
+        </div>
+    </div>
+
+    <script>
+        async function analyze() {
+            const fileInput = document.getElementById('imageFile');
+            const statusP = document.getElementById('status');
+            const resultContainer = document.getElementById('result-container');
+            
+            if (fileInput.files.length === 0) {
+                statusP.textContent = "파일을 먼저 선택해주세요.";
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            statusP.textContent = "얼굴을 분석 중입니다... 잠시만 기다려주세요.";
+            resultContainer.classList.remove('show');
+
+            try {
+                const response = await fetch("/api/analyze-face", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) { throw new Error("분석에 실패했습니다."); }
+
+                const data = await response.json();
+                
+                document.getElementById('char-image').src = data.image_url;
+                document.getElementById('char-name').textContent = data.name;
+                document.getElementById('char-reason').textContent = data.reason;
+
+                statusP.textContent = "";
+                resultContainer.classList.add('show');
+
+            } catch (error) {
+                statusP.textContent = `오류: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
