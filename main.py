@@ -7,15 +7,24 @@ from typing import Dict
 from google.cloud import vision
 from fastapi.staticfiles import StaticFiles
 
-# --- 환경 설정 ---
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'gcp-credentials.json'
+# Render의 비밀 변수(Environment Variable)를 읽어와 파일처럼 사용하도록 설정
+gcp_credentials_content = os.environ.get('GCP_CREDENTIALS_JSON')
+if gcp_credentials_content:
+    # Render 서버에서만 임시 파일을 생성합니다.
+    with open('gcp-credentials-temp.json', 'w', encoding='utf-8') as f:
+        f.write(gcp_credentials_content)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'gcp-credentials-temp.json'
+else:
+    # 로컬 PC에서 테스트할 때는 기존 파일을 사용합니다.
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'gcp-credentials.json'
+
+
 vision_client = vision.ImageAnnotatorClient()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="images"), name="static")
 
 
 # --- 캐릭터 데이터베이스 ---
-# 각 캐릭터의 정보와 속한 아키타입을 미리 정의합니다.
 CHARACTERS_DATA = {
     "denji": {"name": "덴지", "archetype": "chaotic", "reason": "밝고 즐거운 에너지가 넘쳐요!", "image_url": "/static/denji.jpg"},
     "power": {"name": "파워", "archetype": "chaotic", "reason": "강렬하고 예측할 수 없는 매력이 있어요!", "image_url": "/static/power.jpg"},
@@ -73,36 +82,7 @@ async def analyze_face(file: UploadFile = File(...)) -> Dict[str, str]:
 
     if response.label_annotations:
         for label in response.label_annotations:
-            # 안경은 여기서 찾습니다 (오류 수정 완료)
             if label.description.lower() in ["glasses", "eyewear", "sunglasses"]:
                 scores["professional"] += 10
             
-            if label.description in ["sky", "crowd", "outdoor"]: scores["chaotic"] += 5
-            if label.description in ["room", "office", "building"]: scores["professional"] += 5
-            if label.description in ["night", "darkness"]: scores["mysterious"] += 10
-            if label.description in ["cafe", "restaurant", "food"]: scores["hedonist"] += 5
-            if label.description in ["school", "street", "book"]: scores["duality"] += 5
-
-    if response.image_properties_annotation and response.image_properties_annotation.dominant_colors:
-        dominant_colors = response.image_properties_annotation.dominant_colors.colors
-        warm_colors, cool_colors = 0, 0
-        for color_info in dominant_colors:
-            color = color_info.color
-            if color.red > color.blue and color.red > color.green: warm_colors += color_info.pixel_fraction
-            if color.blue > color.red: cool_colors += color_info.pixel_fraction
-        if warm_colors > 0.5: scores["chaotic"] += 10
-        if cool_colors > 0.5: scores["professional"] += 10
-
-    if not any(scores.values()):
-        winning_archetype = "mysterious"
-    else:
-        winning_archetype = max(scores, key=scores.get)
-
-    candidate_chars = [char for char, data in CHARACTERS_DATA.items() if data["archetype"] == winning_archetype]
-    
-    if not candidate_chars:
-        selected_char_name = "pochita" if winning_archetype == "chaotic" else "makima"
-    else:
-        selected_char_name = random.choice(candidate_chars)
-
-    return CHARACTERS_DATA[selected_char_name]
+            if label.description in ["sky", "crowd", "outdoor
